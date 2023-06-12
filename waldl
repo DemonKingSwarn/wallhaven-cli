@@ -1,0 +1,37 @@
+#!/usr/bin/env sh
+
+walldir="$HOME/.local/share/wallhaven"
+cachedir="$HOME/.cache/wallhaven"
+sxiv_otps=" -tfpo -z 200"
+base_url="https://wallhaven.cc"
+
+rm -rf "$cachedir"
+mkdir -p "$walldir" "$cachedir"
+
+[ -z $1 ] && printf ": " && read -r query || query=$1
+
+query=$(printf "$query" | sed 's/ /%20/g')
+
+thumbs=$(curl -sL "$base_url/search?q=$query&page=1" | grep -o "https\?://th.wallhaven.cc/small/.[a-zA-z0-9]*/.[a-zA-Z0-9]*.[a-zA-Z]*")
+
+printf "%s\n" "Downloading thumbnails"
+for url in $thumbs
+do
+    printf "url = %s\n" "$url"
+    printf "output = %s\n" "$cachedir/${url##*/}"
+done | curl -Z -K -
+printf "%s\n" "Downloaded thumbnails"
+
+image_ids=$(nsxiv $sxiv_otps "$cachedir")
+
+cd $walldir
+for ids in $image_ids
+do
+    ids="${ids##*/}"
+    ids="${ids%.*}"
+    url=$(curl -sL "$base_url/w/$ids" | grep -o "https\?://w\.wallhaven\.cc/full/.[a-zA-Z0-9]*/wallhaven-.[a-zA-Z0-9]*\..[a-zA-Z]*")
+    printf "url = %s\n" "$url"
+    printf -- "-O\n"
+done | curl -K -
+
+nsxiv $(ls -c)
